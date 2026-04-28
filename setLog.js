@@ -1,117 +1,100 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
+import { getKstDateContext } from "./dateUtils.js";
 
 const weightFilePath = "./logs/weightLogs.json";
 const logFilePath = "./logs/logs.json";
 
-function getYesterDayKey() {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1; // 월은 0부터 시작하므로 +1
-  const day = date.getDate();
-
-  return `${year}-${month}-${day - 1}`; // 날짜를 문자열로 반환
-}
-
-function getTodayKey() {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1; // 월은 0부터 시작하므로 +1
-  const day = date.getDate();
-
-  return `${year}-${month}-${day}`; // 날짜를 문자열로 반환
-}
-
-function flattenData(array) {
-  // 하나의 배열로 만듬
-  let data = [];
-
-  array.map((arr) => {
-    arr.map((each) => {
-      data.push(each);
-    });
-  });
-
-  return data;
-}
-
-export function saveTeams(teams) {
-  let data = {};
-
-  // 기존 파일이 있으면 데이터를 불러옴
-  if (existsSync(logFilePath)) {
-    const fileData = readFileSync(logFilePath);
-    data = JSON.parse(fileData);
+function readJsonFile(filePath) {
+  if (!existsSync(filePath)) {
+    return {};
   }
 
-  const todayKey = getTodayKey(); // 오늘 날짜를 키로 사용
-
-  if (Object.keys(data).includes(todayKey)) {
-    return;
+  const raw = readFileSync(filePath, "utf8").trim();
+  if (!raw) {
+    return {};
   }
 
-  data[todayKey] = {
-    date: todayKey,
-    data: flattenData(teams),
-  };
-
-  writeFileSync(logFilePath, JSON.stringify(data, null, 2)); // 데이터를 파일에 저장 (2는 JSON 정렬)
-
-  console.log("팀 저장 완료");
-  console.log(teams);
+  return JSON.parse(raw);
 }
 
-export function saveWeights(weights) {
-  writeFileSync(weightFilePath, JSON.stringify(weights, null, 2)); // 데이터를 파일에 저장 (2는 JSON 정렬)
-  console.log("팀 저장 완료");
-  console.log(weights);
+function writeJsonFile(filePath, data) {
+  writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
-export function loadPreviousTeams() {
-  const dateKey = getYesterDayKey();
-
-  if (existsSync(logFilePath)) {
-    const fileData = readFileSync(logFilePath);
-    const data = JSON.parse(fileData);
-
-    if (Object.keys(data).length != 0) {
-      data[dateKey] && console.log("어제 날짜 발견!! 어제 팀으로 셔플합니다.");
-
-      return data[dateKey] || null; // 어제 날짜의 데이터를 반환
-    }
-  }
-
-  console.log("어제 팀을 발견하지 못했으므로, default data 사용합니다.");
-
-  return null; // 파일이 없으면 null 반환
+function flattenTeams(teams) {
+  return teams.flat();
 }
 
-export function loadPreviousWeights(teams) {
-  if (existsSync(weightFilePath)) {
-    const fileData = readFileSync(weightFilePath);
-    const data = JSON.parse(fileData);
-
-    let allMembersExist = true;
-    teams.flat().forEach((member) => {
-      if (!data[member]) {
-        allMembersExist = false;
-      }
-    });
-
-    if (allMembersExist) {
-      return data;
-    }
-  }
-
+export function createInitialWeights(members) {
   const weights = {};
 
-  teams.forEach((member) => {
+  members.forEach((member) => {
     weights[member] = {};
-    teams.forEach((other) => {
+    members.forEach((other) => {
       if (member !== other) {
         weights[member][other] = 0;
       }
     });
   });
+
+  return weights;
+}
+
+function applyTeamWeights(weights, teams) {
+  teams.forEach((team) => {
+    team.forEach((member) => {
+      team.forEach((other) => {
+        if (member !== other && weights[member]?.[other] !== undefined) {
+          weights[member][other]++;
+        }
+      });
+    });
+  });
+}
+
+function readLogs() {
+  return readJsonFile(logFilePath);
+}
+
+export function saveRunResult(teams) {
+  const logs = readLogs();
+  const { todayKey } = getKstDateContext();
+
+  logs[todayKey] = {
+    date: todayKey,
+    members: flattenTeams(teams),
+    teams,
+  };
+
+  writeJsonFile(logFilePath, logs);
+  console.log("Saved teams for", todayKey);
+}
+
+export function saveWeights(weights) {
+  writeJsonFile(weightFilePath, weights);
+  console.log("Saved weights snapshot");
+}
+
+export function loadPreviousTeams() {
+  const logs = readLogs();
+  const { yesterdayKey } = getKstDateContext();
+
+  return logs[yesterdayKey]?.members ?? null;
+}
+
+export function loadPreviousWeights(members) {
+  const logs = readLogs();
+  const { todayKey } = getKstDateContext();
+  const weights = createInitialWeights(members);
+
+  Object.entries(logs)
+    .filter(([dateKey]) => dateKey < todayKey)
+    .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+    .forEach(([, entry]) => {
+      if (Array.isArray(entry?.teams)) {
+        applyTeamWeights(weights, entry.teams);
+      }
+    });
 
   return weights;
 }

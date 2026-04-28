@@ -1,35 +1,28 @@
 import { createTeams, teamsToString } from "./createTeam.js";
 import { members, TEAM_SIZE } from "./data.js";
+import { getKstDateContext } from "./dateUtils.js";
 import { sendWebhook } from "./MMdeploy.js";
-import { loadPreviousTeams, loadPreviousWeights } from "./setLog.js";
+import {
+  loadPreviousTeams,
+  loadPreviousWeights,
+  saveRunResult,
+  saveWeights,
+} from "./setLog.js";
 
-function getPrevTeams() {
-  const prevTeams = loadPreviousTeams();
-
-  return prevTeams != null //
-    ? prevTeams.data
-    : members;
+function getBaseMembers() {
+  const previousMembers = loadPreviousTeams();
+  return previousMembers ?? members;
 }
 
-function getPrevWeight(teams) {
-  const getPrevWeights = loadPreviousWeights(teams);
-
-  return getPrevWeights;
-}
-
-// 배포 로직
 async function deploy() {
-  const teams = getPrevTeams();
-  const weights = getPrevWeight(teams);
-
-  const message = teamsToString(createTeams(teams, weights, TEAM_SIZE));
+  const baseMembers = getBaseMembers();
+  const weights = loadPreviousWeights(baseMembers);
+  const teams = createTeams(baseMembers, weights, TEAM_SIZE);
+  const message = teamsToString(teams, getKstDateContext().displayDate);
 
   await sendWebhook(message);
+  saveRunResult(teams);
+  saveWeights(weights);
 }
 
-// 디버깅용
-// const teams = getPrevTeams();
-// const weights = getPrevWeight(teams);
-// console.log(teamsToString(createTeams(teams, weights, TEAM_SIZE)));
-// 배포 스크립트 실행
 deploy();
