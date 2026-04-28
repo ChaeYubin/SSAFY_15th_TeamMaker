@@ -14,6 +14,10 @@ function getBaseMembers() {
   return previousMembers ?? members;
 }
 
+function shouldPersistLogs() {
+  return process.env.PERSIST_LOGS !== "false";
+}
+
 async function deploy() {
   const baseMembers = getBaseMembers();
   const weights = loadPreviousWeights(baseMembers);
@@ -21,8 +25,14 @@ async function deploy() {
   const message = teamsToString(teams, getKstDateContext().displayDate);
 
   await sendWebhook(message);
-  saveRunResult(teams);
-  saveWeights(weights);
+
+  if (shouldPersistLogs()) {
+    saveRunResult(teams);
+    saveWeights(weights);
+    return;
+  }
+
+  console.log("Skipped log persistence for test run");
 }
 
 deploy();

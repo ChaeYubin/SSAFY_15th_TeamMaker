@@ -41,6 +41,7 @@ jobs:
         env:
           MM_WEBHOOK_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'test' && secrets.MM_WEBHOOK_TEST_URL || secrets.MM_WEBHOOK_URL }}
           MEMBERS: ${{ secrets.MEMBERS }}
+          PERSIST_LOGS: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.target == 'prod' }}
         run: node index.js
 
       # 새로 만든 파일 GitHub에 자동 커밋
