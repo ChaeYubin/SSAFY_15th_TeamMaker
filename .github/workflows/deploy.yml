@@ -1,44 +1,51 @@
-# name: Deploy
+﻿name: Deploy
 
-# on:
-#   push: # 테스트를 위해 추가 
-#   schedule:
-#   # - cron: '30 22 * * 0-4' # UTC : 일 ~ 목 오후 23시 00분 => KST : 월 ~ 금 오전 07시 30분
-#   - cron: '30 23 * * 0-4'
+on:
+  workflow_dispatch:
+  schedule:
+    # Asia/Seoul (UTC+9) 수 08:30 = UTC 화 23:30
+    - cron: "30 23 * * 2"
 
-# jobs:
-#   deploy:
-#     runs-on: ubuntu-latest
-#     steps:
-#       # 현재 repository로 접근
-#       - uses: actions/checkout@v4
+permissions:
+  contents: write
 
-#       # Node.js 설치
-#       - name: Use Node.js
-#         uses: actions/setup-node@v3
-#         with:
-#           node-version: 'latest'
-#           cache: 'npm'
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # 현재 repository 체크아웃
+      - uses: actions/checkout@v4
 
-#       # npm i
-#       - name: dependencies 설치
-#         run: npm install
+      # Node.js 설치
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
 
-#       # 스크립트 실행
-#       - name: Run
-#         env:
-#           MM_WEBHOOK_URL: ${{ secrets.MM_WEBHOOK_URL }}   # Mattermost Webhook URL, Github Secrets에 추가
-#           MEMBERS: ${{ secrets.MEMBERS }} # 팀원 목록, Github Secrets에 추가
-#         run: node index.js
+      # npm i
+      - name: Install dependencies
+        run: npm install
 
-#       # 새로 만든 파일 github에 자동 커밋
-#       - name: Auto commit
-#         env:
-#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#         run: |
-#           git add .
-#           git config --global user.email ${{ secrets.USER_EMAIL }}
-#           git config --global user.name ${{ secrets.USER_NAME }}
-#           DATE=$(date -d '+1 day' +'%Y-%m-%d')
-#           git commit -m "Add ${DATE} team"
-#           git push origin main
+      # 스크립트 실행
+      - name: Run team generation
+        env:
+          MM_WEBHOOK_URL: ${{ secrets.MM_WEBHOOK_URL }}
+          MEMBERS: ${{ secrets.MEMBERS }}
+        run: node index.js
+
+      # 새로 만든 파일 GitHub에 자동 커밋
+      - name: Commit generated files
+        run: |
+          git config user.email ${{ secrets.USER_EMAIL }}
+          git config user.name ${{ secrets.USER_NAME }}
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          DATE=$(TZ=Asia/Seoul date +'%Y-%m-%d')
+          git commit -m "docs: add ${DATE} team"
+          git push origin HEAD:main
