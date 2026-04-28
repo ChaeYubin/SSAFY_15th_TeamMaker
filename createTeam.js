@@ -32,31 +32,45 @@ const shift = (array = []) => {
   return newArr;
 };
 
-export function createTeams(array, teamSize) {
-  let shiftArray = shift(array);
-  let shuffledArray = shuffle(shiftArray);
-
-  let teams = [];
-
-  for (let i = 0; i < shuffledArray.length; i += teamSize) {
-    teams.push(shuffledArray.slice(i, i + teamSize));
+export function calculateTeamSizes(totalMembers, teamSize) {
+  if (totalMembers <= teamSize) {
+    return [totalMembers];
   }
-  saveTeams(teams);
 
-  return teams;
+  const fullTeamCount = Math.floor(totalMembers / teamSize);
+  const remainder = totalMembers % teamSize;
+
+  if (remainder === 0) {
+    return Array(fullTeamCount).fill(teamSize);
+  }
+
+  if (remainder === 1) {
+    return [...Array(fullTeamCount - 1).fill(teamSize), teamSize + 1];
+  }
+
+  if (remainder === 2) {
+    return [
+      ...Array(fullTeamCount - 1).fill(teamSize),
+      teamSize - 1,
+      teamSize - 1,
+    ];
+  }
+
+  return [...Array(fullTeamCount).fill(teamSize), remainder];
 }
 
-export function createTeamsV2(array, weights, teamSize) {
+export function createTeams(array, weights, teamSize) {
   let teams = [];
   let usedMembers = new Set();
+  const targetTeamSizes = calculateTeamSizes(array.length, teamSize);
 
-  while (usedMembers.size < array.length) {
+  targetTeamSizes.forEach((targetTeamSize) => {
     let team = [];
     let availableMembers = shuffle(
-      array.filter((member) => !usedMembers.has(member))
+      array.filter((member) => !usedMembers.has(member)),
     );
 
-    while (team.length < teamSize && availableMembers.length > 0) {
+    while (team.length < targetTeamSize && availableMembers.length > 0) {
       availableMembers.sort((a, b) => {
         let weightA = team.reduce((sum, member) => sum + weights[member][a], 0);
         let weightB = team.reduce((sum, member) => sum + weights[member][b], 0);
@@ -78,7 +92,7 @@ export function createTeamsV2(array, weights, teamSize) {
         }
       });
     });
-  }
+  });
 
   saveTeams(teams);
   saveWeights(weights);
