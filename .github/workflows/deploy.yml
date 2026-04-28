@@ -2,6 +2,15 @@ name: Deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: "Deployment target"
+        required: true
+        type: choice
+        default: test
+        options:
+          - test
+          - prod
   schedule:
     # Asia/Seoul (UTC+9) 수 08:30 = UTC 화 23:30
     - cron: "30 23 * * 2"
@@ -30,7 +39,7 @@ jobs:
       # 스크립트 실행
       - name: Run team generation
         env:
-          MM_WEBHOOK_URL: ${{ secrets.MM_WEBHOOK_URL }}
+          MM_WEBHOOK_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'test' && secrets.MM_WEBHOOK_TEST_URL || secrets.MM_WEBHOOK_URL }}
           MEMBERS: ${{ secrets.MEMBERS }}
         run: node index.js
 
