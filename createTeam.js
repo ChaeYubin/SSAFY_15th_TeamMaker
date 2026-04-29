@@ -92,7 +92,10 @@ export function teamsToString(
   const { month, day } = displayDate;
   const title = `### :party_blob: :rice: ${month}월 ${day}일 밥 같이 먹어요 :rice: :party_blob: :cat_feed:`;
   const teamList = teams
-    .map((team, index) => `**${index + 1}조**    ➡    ${team.join("\t")}`)
+    .map(
+      (team, index) =>
+        `**${index + 1}조 (${team.length}명)**  ➡  ${team.join("\t")}`,
+    )
     .join("\n");
 
   return `${title}\n${teamList}`;
