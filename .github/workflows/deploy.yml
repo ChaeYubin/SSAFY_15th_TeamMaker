@@ -57,5 +57,5 @@ jobs:
           fi
 
           DATE=$(TZ=Asia/Seoul date +'%Y-%m-%d')
-          git commit -m "docs: add ${DATE} team"
+          git commit -m "chore: add ${DATE} team log"
           git push origin HEAD:main
